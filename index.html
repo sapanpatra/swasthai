@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Swasth AI - Health Assistant</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/generative-ai": "https://esm.run/@google/generative-ai"
+        }
+      }
+    </script>
+    <script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                "primary": "#0040a1",
+                "primary-container": "#0056d2",
+                "on-primary": "#ffffff",
+                "on-primary-container": "#ccd8ff",
+                "secondary-container": "#aeeecb",
+                "on-secondary-container": "#316e52",
+                "tertiary-fixed": "#ffdbd0",
+                "tertiary-fixed-dim": "#ffb59e",
+                "on-tertiary-fixed": "#390b00",
+                "on-tertiary-fixed-variant": "#842500",
+                "background": "#faf9fa",
+                "surface": "#faf9fa",
+                "on-surface": "#1a1c1d",
+                "on-surface-variant": "#424654",
+                "surface-container-low": "#f4f3f4",
+                "surface-container-high": "#e8e8e9",
+                "surface-variant": "#e3e2e3",
+                "error": "#ba1a1a",
+                "error-container": "#ffdad6",
+                "on-error-container": "#93000a"
+              },
+              "borderRadius": { "xl": "1.5rem", "full": "9999px" },
+              "fontFamily": { "body": ["Public Sans", "Noto Sans", "sans-serif"] }
+            },
+          },
+        }
+    </script>
+    <style>
+        body { font-family: 'Public Sans', 'Noto Sans', sans-serif; line-height: 1.5; scroll-behavior: smooth; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        /* Hide scrollbar when chat is open */
+        .no-scroll { overflow: hidden; }
+
+        /* Mobile Responsive Adjustments */
+        @media (max-width: 480px) {
+            .max-w-2xl { max-width: 100% !important; padding-left: 1rem; padding-right: 1rem; }
+            section { border-radius: 1.5rem !important; }
+            h1 { font-size: 1.5rem !important; }
+        }
+
+        /* Safe area for bottom nav */
+        .pb-safe { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+        
+        * { -webkit-tap-highlight-color: transparent; }
+        .mesh-bg {
+            background: linear-gradient(-45deg, #e0f2fe, #fdf4ff, #d1fae5, #eff6ff);
+            background-size: 400% 400%;
+            animation: meshMove 15s ease infinite;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -10;
+        }
+
+        @keyframes meshMove {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes scanLine {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+        @keyframes bounceFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body class="text-on-surface min-h-screen">
+    <div class="mesh-bg"></div>
+
+    <!-- HOME VIEW -->
+    <div id="viewHome" class="pb-32">
+        <header class="bg-white/40 backdrop-blur-xl sticky top-0 z-50 border-b border-white/50 shadow-[0_8px_32px_rgba(26,28,29,0.05)] flex justify-between items-center px-6 py-4 w-full">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">stethoscope</span>
+                <span class="text-2xl font-black text-primary tracking-tighter">Swasth AI</span>
+            </div>
+            <button id="openHelpBtn" class="p-2 rounded-full hover:bg-blue-50 text-primary transition-colors">
+                <span class="material-symbols-outlined">help</span>
+            </button>
+        </header>
+
+        <main class="px-6 pt-8 max-w-2xl mx-auto space-y-8">
+            <section class="space-y-3">
+                <div class="inline-flex items-center gap-2 px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-bold ring-1 ring-green-600/20 mb-1">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    24/7 Muft Suvidha
+                </div>
+                <h1 class="text-[2.5rem] md:text-5xl leading-tight font-extrabold tracking-tight text-on-surface">
+                    Doctor se pehle, <br/>
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">Swasth AI se poochiye.</span>
+                </h1>
+                <p class="text-on-surface-variant text-lg font-medium">Ghar baithe apni takleef batayein aur turant jankari payein, bilkul muft.</p>
+            </section>
+
+            <section class="grid grid-cols-2 gap-4">
+                <button id="btnCamera" class="col-span-2 relative overflow-hidden bg-gradient-to-br from-primary/90 to-primary-container/90 backdrop-blur-xl border border-white/20 p-6 rounded-[2rem] flex flex-col justify-between items-start text-left min-h-[180px] shadow-2xl transition-transform hover:shadow-primary/30 active:scale-[0.98]">
+                    <div class="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
+                    <div class="bg-white/20 p-3 rounded-2xl backdrop-blur-md mb-4 text-white ring-1 ring-white/30">
+                        <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">add_a_photo</span>
+                    </div>
+                    <div>
+                        <h2 class="text-white text-2xl font-bold">Ghaav ki Photo lein</h2>
+                        <p class="text-white/80 text-sm mt-1">Instant AI skin analysis</p>
+                    </div>
+                </button>
+                <button id="btnSymptoms" class="col-span-1 bg-white/40 backdrop-blur-xl border border-white/60 shadow-xl p-5 rounded-[1.5rem] flex flex-col justify-between items-start text-left min-h-[160px] active:scale-[0.98] relative overflow-hidden">
+                    <div class="absolute -bottom-6 -right-6 w-20 h-20 bg-green-200/40 rounded-full blur-xl z-0"></div>
+                    <div class="bg-white/60 p-3 rounded-2xl mb-2 text-green-700 ring-1 ring-white/50 z-10 shadow-sm relative">
+                        <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">mic</span>
+                    </div>
+                    <h3 class="text-on-surface font-extrabold text-lg leading-snug z-10 relative">Symptoms<br>bole</h3>
+                </button>
+                <button id="btnUpload" class="col-span-1 bg-white/40 backdrop-blur-xl border border-white/60 shadow-xl p-5 rounded-[1.5rem] flex flex-col justify-between items-start text-left min-h-[160px] active:scale-[0.98] relative overflow-hidden">
+                    <div class="absolute -bottom-6 -left-6 w-20 h-20 bg-blue-200/40 rounded-full blur-xl z-0"></div>
+                    <div class="bg-white/60 p-3 rounded-2xl mb-2 text-primary ring-1 ring-white/50 z-10 shadow-sm relative">
+                        <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">upload_file</span>
+                    </div>
+                    <h3 class="text-on-surface font-extrabold text-lg leading-snug z-10 relative">Report<br>upload</h3>
+                </button>
+            </section>
+
+            <section class="bg-white/40 backdrop-blur-xl border border-white/50 shadow-lg p-6 rounded-[2rem] relative overflow-hidden">
+                <div class="relative z-10 space-y-2 max-w-[70%]">
+                    <h3 class="text-on-tertiary-fixed font-bold text-lg">Health Tip</h3>
+                    <p id="dailyHealthTip" class="text-on-tertiary-fixed-variant text-sm font-medium">Roz subah thoda garm paani piyein, yeh digestion ke liye accha hai.</p>
+                </div>
+                <span class="material-symbols-outlined absolute right-[-10px] bottom-[-10px] text-8xl text-tertiary-fixed-dim/40 rotate-12">health_metrics</span>
+            </section>
+        </main>
+    </div>
+
+    <!-- RECORDS VIEW -->
+    <div id="viewRecords" class="hidden min-h-screen pt-20 pb-32">
+        <header class="bg-white/40 backdrop-blur-xl fixed top-0 w-full z-50 px-6 py-4 border-b border-white/50 shadow-sm flex items-center gap-4">
+            <button onclick="showView('viewHome')" class="w-10 h-10 flex items-center justify-center rounded-full bg-white/60 text-primary shadow-inner">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </button>
+            <h1 class="text-xl font-bold text-primary flex-1">Aapke Records</h1>
+            <div class="bg-blue-100/50 px-3 py-1 rounded-full">
+                <span id="recordCount" class="text-xs font-bold text-primary">0 Records</span>
+            </div>
+        </header>
+
+        <main class="px-6 pt-6 max-w-2xl mx-auto space-y-6">
+            <div id="recordsEmptyState" class="hidden flex flex-col items-center justify-center py-20 text-center space-y-4">
+                <div class="w-20 h-20 bg-white/40 ring-1 ring-white/50 backdrop-blur-md rounded-full flex items-center justify-center text-on-surface-variant/50 shadow-inner">
+                    <span class="material-symbols-outlined text-5xl">folder_off</span>
+                </div>
+                <div class="space-y-1">
+                    <h3 class="font-bold text-lg">Koi record nahi hai</h3>
+                    <p class="text-on-surface-variant text-sm px-10">Pehle scan karein aur result yahan save ho jayenge.</p>
+                </div>
+            </div>
+
+            <div id="recordsList" class="space-y-4">
+                <!-- Record cards will be injected here -->
+            </div>
+        </main>
+    </div>
+
+    <!-- ANALYSIS VIEW -->
+    <div id="viewAnalysis" class="hidden min-h-screen pt-20 pb-20">
+        <header class="bg-white/40 backdrop-blur-xl fixed top-0 w-full z-50 px-4 py-4 flex items-center gap-4 border-b border-white/50 shadow-sm">
+            <button id="btnBackToHome" class="w-10 h-10 flex items-center justify-center rounded-full bg-white/60 text-primary shadow-inner">
+                <span class="material-symbols-outlined">arrow_back</span>
+            </button>
+            <h1 class="text-xl font-bold">Analysis Results</h1>
+        </header>
+
+        <main class="px-4 md:px-6 max-w-2xl mx-auto space-y-6">
+            <section class="bg-white/40 backdrop-blur-xl border border-white/60 p-4 rounded-2xl flex items-center gap-4 shadow-sm">
+                <div class="w-16 h-16 rounded-xl bg-white/60 overflow-hidden shrink-0 border border-white/80 shadow-inner">
+                    <img id="resImage" src="" alt="Scan" class="w-full h-full object-cover">
+                </div>
+                <div class="flex-1">
+                    <h2 class="font-extrabold text-lg">Analysis Complete</h2>
+                    <p class="text-on-surface-variant text-sm mt-0.5">AI Health Insights Ready</p>
+                </div>
+                <div class="bg-green-100/80 backdrop-blur-sm p-2 rounded-full border border-green-200/50 shadow-sm">
+                    <span class="material-symbols-outlined text-green-700" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                </div>
+            </section>
+
+            <section class="bg-primary/5 p-4 rounded-xl flex items-center justify-between gap-4 border border-primary/10">
+                <div class="flex items-center gap-3">
+                    <div class="bg-primary/10 p-2 rounded-lg text-primary flex items-center justify-center">
+                        <span class="material-symbols-outlined text-lg">translate</span>
+                    </div>
+                    <select id="langSelect" class="bg-transparent border-none focus:ring-0 font-bold text-primary text-sm p-0 appearance-none cursor-pointer">
+                        <option value="Hinglish">Hinglish</option>
+                        <option value="Odia">Odia (ଓଡ଼ିଆ)</option>
+                        <option value="Hindi">Hindi (हिन्दी)</option>
+                        <option value="Bengali">Bengali (বাংলা)</option>
+                        <option value="Telugu">Telugu (తెలుగు)</option>
+                    </select>
+                    <span class="material-symbols-outlined text-primary/50 text-sm">expand_more</span>
+                </div>
+                <button id="btnSpeak" class="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-md active:scale-95 transition-all hover:bg-primary-container">
+                    <span id="speakIcon" class="material-symbols-outlined text-lg">volume_up</span>
+                    <span id="speakText">Sunein</span>
+                </button>
+            </section>
+
+            <section id="resSeverityCard" class="p-5 rounded-xl border relative overflow-hidden">
+                <div class="flex items-center gap-2 mb-2">
+                    <span id="resSeverityIcon" class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">info</span>
+                    <span id="resSeverityLabel" class="font-bold text-lg">3. 📊 Severity Level</span>
+                </div>
+                <p id="resSeverityReason" class="font-semibold text-lg leading-snug"></p>
+            </section>
+
+            <section class="bg-white/50 backdrop-blur-2xl rounded-2xl p-5 shadow-lg border border-white/60 space-y-6">
+                <div>
+                    <h2 class="text-xl font-bold text-primary mb-2 flex items-center gap-2">
+                        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">lens_blur</span>
+                        1. 📌 Problem Samjho
+                    </h2>
+                    <p id="resProblem" class="text-lg font-semibold leading-relaxed"></p>
+                </div>
+                <div class="h-[1px] w-full bg-surface-variant/50"></div>
+                <div>
+                    <h2 class="text-xl font-bold text-primary mb-2 flex items-center gap-2">
+                        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">help_clinic</span>
+                        2. ⚠️ Kya ho sakta hai
+                    </h2>
+                    <p id="resDiagnosis" class="text-lg font-semibold leading-relaxed"></p>
+                </div>
+            </section>
+
+            <section id="resReportWrapper" class="bg-blue-50 rounded-xl p-5 border border-blue-100 hidden">
+                <h2 class="text-xl font-bold text-blue-700 mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">receipt_long</span>
+                    6. 🔍 Report Samjho
+                </h2>
+                <div id="resReportList" class="space-y-3"></div>
+            </section>
+
+            <section class="bg-secondary-container rounded-xl p-6 shadow-sm">
+                <h2 class="text-xl font-bold text-on-secondary-container mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home_health</span>
+                    4. 🏠 Abhi kya kare
+                </h2>
+                <ul id="resActionsList" class="space-y-4 text-lg text-on-secondary-container font-semibold"></ul>
+            </section>
+
+            <section id="resAyurvedaWrapper" class="bg-emerald-50/70 backdrop-blur-xl rounded-2xl p-6 border border-emerald-200/50 shadow-md hidden">
+                <h2 class="text-xl font-bold text-emerald-800 mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-emerald-600" style="font-variation-settings: 'FILL' 1;">eco</span>
+                    🌿 Ayurveda Gharelu Upchar
+                </h2>
+                <ul id="resAyurvedaList" class="space-y-4 text-lg text-emerald-900 font-semibold"></ul>
+                <p class="text-[11px] text-emerald-700 mt-4 font-bold tracking-wide uppercase opacity-80">*Yeh purane nuskhe hain, doctor ki salah zaroori hai.</p>
+            </section>
+
+            <section class="bg-error-container text-on-error-container rounded-xl p-6 border-l-8 border-error relative overflow-hidden">
+                <h2 class="text-xl font-bold mb-3 flex items-center gap-2">
+                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">local_hospital</span>
+                    5. 🚨 Kab doctor ko dikhayein
+                </h2>
+                <ul id="resWarningsList" class="space-y-3 text-lg font-medium list-disc pl-6"></ul>
+            </section>
+
+            <section class="opacity-70 text-center pb-8">
+                <p id="resNote" class="text-sm bg-gray-100 p-3 rounded-lg"></p>
+            </section>
+        </main>
+    </div>
+
+    <!-- CHAT UI -->
+    <button id="openChatBtn" class="fixed bottom-6 right-6 w-16 h-16 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-40 hidden">
+        <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">chat</span>
+    </button>
+
+    <div id="chatOverlay" class="fixed inset-0 bg-black/40 z-[1000] opacity-0 pointer-events-none transition-opacity duration-300">
+        <div id="chatModal" class="absolute bottom-0 w-full h-[80vh] bg-white/80 backdrop-blur-3xl border-t border-white/60 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.1)] flex flex-col translate-y-full transition-transform duration-300 md:max-w-2xl md:left-1/2 md:-translate-x-1/2">
+            <div class="px-6 py-5 flex items-center justify-between border-b shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-primary">
+                        <span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-lg">AI Se Poochein</h2>
+                        <p class="text-xs text-on-surface-variant font-medium">Follow-up questions</p>
+                    </div>
+                </div>
+                <button id="closeChatBtn" class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div id="chatFeed" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <div class="flex items-start gap-2 max-w-[85%]">
+                    <div class="bg-gray-100 px-4 py-3 rounded-2xl rounded-tl-none font-medium text-on-surface">
+                        Aapki report tayaar hai. Kya iske baare mein aapka koi sawal hai?
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 bg-gray-50 border-t pb-8">
+                <form id="chatForm" class="flex items-center gap-2 max-w-2xl mx-auto">
+                    <input type="text" id="chatInput" placeholder="Sawal likhein..." class="flex-1 border-none focus:ring-0 bg-white rounded-xl px-4 py-3 shadow-inner">
+                    <button type="submit" class="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center shadow-lg active:scale-95">
+                        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- HELP MODAL -->
+    <div id="helpOverlay" class="fixed inset-0 bg-black/60 z-[11000] flex items-center justify-center p-4 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300">
+        <div id="helpModal" class="bg-white/80 backdrop-blur-3xl border border-white/60 max-w-sm w-full rounded-[2.5rem] p-8 space-y-6 shadow-2xl transform scale-95 transition-transform duration-300 relative overflow-hidden">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="w-12 h-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center shadow-inner">
+                    <span class="material-symbols-outlined text-3xl">lightbulb</span>
+                </div>
+                <h2 class="text-2xl font-black text-on-surface tracking-tight">Sahi Tarika</h2>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="flex items-start gap-4">
+                    <div class="bg-blue-50 p-2 rounded-xl text-primary shrink-0">
+                        <span class="material-symbols-outlined text-lg">wb_sunny</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-sm">Sahi Roshni</h4>
+                        <p class="text-xs text-on-surface-variant font-medium">Hamesha photo achhi roshni mein lein (Ujala hona chahiye).</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-4">
+                    <div class="bg-green-50 p-2 rounded-xl text-green-700 shrink-0">
+                        <span class="material-symbols-outlined text-lg">vibration</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-sm">Camera Sthir</h4>
+                        <p class="text-xs text-on-surface-variant font-medium">Photo khinchte waqt haath na hilaein (Keep steady).</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-4">
+                    <div class="bg-purple-50 p-2 rounded-xl text-purple-700 shrink-0">
+                        <span class="material-symbols-outlined text-lg">zoom_in</span>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-sm">Saaf Focus</h4>
+                        <p class="text-xs text-on-surface-variant font-medium">Ghaav ya report bilkul beech mein aur saaf honi chahiye.</p>
+                    </div>
+                </div>
+            </div>
+
+            <button id="closeHelpBtn" class="w-full bg-primary text-white font-bold text-lg py-4 rounded-2xl shadow-lg hover:shadow-xl active:scale-95 transition-all">
+                Theek Hai
+            </button>
+        </div>
+    </div>
+
+    <!-- DISCLAIMER MODAL -->
+    <div id="disclaimerOverlay" class="fixed inset-0 bg-black/70 z-[10000] flex items-center justify-center p-4 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300">
+        <div id="disclaimerModal" class="bg-white/70 backdrop-blur-3xl border border-white/60 max-w-sm w-full rounded-[2.5rem] p-8 space-y-6 shadow-2xl transform scale-95 transition-transform duration-300 text-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-32 bg-error-container/50 -z-10"></div>
+            <div class="w-20 h-20 bg-error/10 text-error rounded-full flex items-center justify-center mx-auto mb-2 shadow-inner border border-error/20">
+                <span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">health_and_safety</span>
+            </div>
+            <h2 class="text-3xl font-extrabold text-on-surface tracking-tight">Zaroori Soochna</h2>
+            <p class="text-on-surface-variant font-medium text-[15px] leading-relaxed">
+                Swasth AI ek Artificial Intelligence tool hai, <b>asli doctor nahi</b>.<br><br>
+                Is ka upyog sirf jankari ke liye karein. Gambhir samasya ya emergency hone par turant nazdiki doctor se sampark karein.
+            </p>
+            <div class="border-t border-white/40 pt-4 mt-2 mb-2">
+                <p class="text-xs text-on-surface-variant/80 font-medium">
+                    Aage badhne par aap hamari <a href="#" class="text-primary underline font-bold">Privacy Policy</a> aur Terms se sehmat hote hain. Hum aapka data mehfooz (safe) rakhte hain.
+                </p>
+            </div>
+            <button id="btnAcceptDisclaimer" class="w-full bg-primary text-white font-bold text-lg py-4 rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all">
+                Main Samajh Gaya
+            </button>
+        </div>
+    </div>
+
+    <!-- AUTH MODAL -->
+    <div id="authOverlay" class="fixed inset-0 bg-black/60 z-[9999] opacity-0 pointer-events-none transition-opacity duration-300 backdrop-blur-sm">
+        <div id="authModal" class="absolute bottom-0 w-full h-[70vh] bg-white/70 backdrop-blur-3xl border-t border-white/60 rounded-t-[3rem] shadow-[0_-20px_50px_rgba(0,0,0,0.1)] flex flex-col translate-y-full transition-transform duration-500 ease-out md:max-w-md md:left-1/2 md:-translate-x-1/2 overflow-hidden">
+            <!-- Glassmorphism Header Background -->
+            <div class="absolute top-0 left-0 w-full h-48 bg-white/20 blur-2xl -z-10"></div>
+            
+            <div class="p-6 flex flex-col items-center text-center space-y-6">
+                <!-- Close Button -->
+                <button id="closeAuthBtn" class="absolute top-6 right-6 w-10 h-10 bg-white/80 backdrop-blur-md rounded-full shadow-sm flex items-center justify-center text-on-surface-variant">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+
+                <!-- Icon/Illustration -->
+                <div class="w-24 h-24 bg-white rounded-[2rem] shadow-xl flex items-center justify-center mt-8 relative group overflow-hidden">
+                    <div class="absolute inset-0 bg-primary/5 group-hover:bg-primary/10 transition-colors"></div>
+                    <span id="authHeaderIcon" class="material-symbols-outlined text-5xl text-primary" style="font-variation-settings: 'FILL' 1;">health_and_safety</span>
+                </div>
+
+                <div id="authContentLoggedOut" class="w-full space-y-6">
+                    <div class="space-y-2">
+                        <h2 class="text-3xl font-extrabold tracking-tight text-on-surface">Swasth AI <br/><span class="text-primary text-2xl font-bold">ke saath judein</span></h2>
+                        <p class="text-on-surface-variant text-sm px-8">Aage badhne ke liye sign in karein aur apni health history check karein.</p>
+                    </div>
+
+                    <div class="w-full space-y-4 pt-4 px-4">
+                        <!-- Google Sign-In -->
+                        <button id="btnGoogleSignIn" class="w-full flex items-center justify-center gap-3 bg-white border border-surface-variant p-4 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 group">
+                            <img src="https://www.google.com/favicon.ico" class="w-6 h-6 grayscale group-hover:grayscale-0 transition-all" alt="google">
+                            <span class="font-bold text-on-surface">Sign in with Google</span>
+                        </button>
+                        
+                        <div class="flex items-center gap-4 py-2">
+                            <div class="h-px flex-1 bg-surface-variant"></div>
+                            <span class="text-[10px] uppercase font-bold text-on-surface-variant/40 tracking-widest">ya</span>
+                            <div class="h-px flex-1 bg-surface-variant"></div>
+                        </div>
+
+                        <!-- Email Sign-In -->
+                        <div class="space-y-3">
+                            <div class="relative">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">mail</span>
+                                <input type="email" id="emailInput" placeholder="Aapka Email" class="w-full bg-surface-container-low border-none rounded-2xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-primary shadow-inner">
+                            </div>
+                            <button id="btnEmailSignIn" class="w-full bg-primary text-white p-4 rounded-2xl shadow-lg hover:shadow-xl transition-all active:scale-95 font-bold">
+                                Email se link bhejein
+                            </button>
+                        </div>
+
+                        <!-- Guest Mode -->
+                        <button id="btnGuestMode" class="w-full text-on-surface-variant text-sm font-medium hover:text-primary transition-colors py-2">
+                            Bina login ke jari rakhein
+                        </button>
+                    </div>
+                </div>
+
+                <div id="authContentLoggedIn" class="hidden w-full space-y-6">
+                    <div class="space-y-2">
+                        <h2 class="text-2xl font-extrabold text-on-surface">Aapka Profile</h2>
+                        <p id="userEmailDisplay" class="text-primary font-bold text-lg"></p>
+                    </div>
+
+                    <div class="w-full space-y-4 pt-4 px-4">
+                        <button id="btnLogout" class="w-full flex items-center justify-center gap-3 bg-surface-container-high text-error p-4 rounded-2xl font-bold shadow-sm active:scale-95">
+                            <span class="material-symbols-outlined">logout</span>
+                            Logout Karein
+                        </button>
+                    </div>
+                </div>
+
+                <p id="authNotice" class="text-[10px] text-on-surface-variant/60 px-10 leading-relaxed pt-4">
+                    Sign in karke aap hamari <a href="#" class="underline">Terms of Service</a> aur <a href="#" class="underline">Privacy Policy</a> se sehmat hote hain.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCANNER UI -->
+    <div id="scannerOverlay" class="fixed inset-0 bg-black z-[300] flex flex-col opacity-0 pointer-events-none transition-opacity duration-300">
+        <!-- Live Video Feed -->
+        <video id="scannerVideo" autoplay playsinline class="absolute inset-0 w-full h-full object-cover"></video>
+        
+        <!-- UI Overlay (Dark border, clear center) -->
+        <div class="absolute inset-0 z-10 pointer-events-none border-y-[15vh] border-x-[10vw] border-black/60">
+            <div class="relative w-full h-full rounded-2xl box-border">
+                <!-- Laser Line -->
+                <div class="absolute left-0 right-0 w-full h-[2px] bg-[#4ade80] shadow-[0_0_15px_#4ade80] z-20 top-0" style="animation: scanLine 3s infinite linear;"></div>
+                
+                <!-- Bouncing Funny Bot -->
+                <div class="absolute inset-0 flex flex-col items-center justify-center" style="animation: bounceFloat 2s ease-in-out infinite;">
+                    <div class="w-16 h-16 bg-white/20 backdrop-blur-md border border-white/50 shadow-xl rounded-full flex items-center justify-center mb-2 shrink-0">
+                        <span class="material-symbols-outlined text-4xl text-white" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+                    </div>
+                </div>
+
+                <!-- Corner markers -->
+                <div class="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-[#4ade80] rounded-tl-2xl"></div>
+                <div class="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-[#4ade80] rounded-tr-2xl"></div>
+                <div class="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-[#4ade80] rounded-bl-2xl"></div>
+                <div class="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-[#4ade80] rounded-br-2xl"></div>
+                
+                <!-- Scanning Instructions Note -->
+                <div class="absolute -bottom-16 left-0 right-0 text-center">
+                    <p class="text-white/90 text-sm font-bold drop-shadow-md bg-black/40 backdrop-blur-md py-2 px-4 rounded-full border border-white/20 inline-block mx-auto">
+                        Note: Agar saaf nahi dikh raha, toh phone door ya paas karein
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden canvas to render photo -->
+        <canvas id="scannerCanvas" class="hidden"></canvas>
+
+        <!-- Top Header Controls -->
+        <div class="absolute top-0 left-0 w-full pt-12 pb-6 px-6 z-20 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
+            <button id="closeScannerBtn" class="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 border border-white/30">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+            <h2 class="text-white font-bold tracking-widest text-sm shadow-sm">SCAN PROBLEM</h2>
+            <div class="w-10"></div> <!-- Spacer -->
+        </div>
+
+        <!-- Bottom Controls -->
+        <div class="absolute bottom-0 left-0 w-full p-8 pb-12 z-20 flex justify-center items-center gap-12 bg-gradient-to-t from-black/90 to-transparent">
+            <!-- Upload from gallery button -->
+            <button id="scannerUploadBtn" class="flex flex-col items-center justify-center gap-2 text-white/90 active:scale-95 transition-transform drop-shadow-md">
+                <div class="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center border border-white/30 backdrop-blur-md">
+                    <span class="material-symbols-outlined">collections</span>
+                </div>
+                <span class="text-[10px] font-bold tracking-wider">GALLERY</span>
+            </button>
+
+            <!-- Shutter Button -->
+            <button id="scannerShutterBtn" class="w-20 h-20 rounded-full border-[5px] border-white/80 flex items-center justify-center active:scale-95 transition-transform backdrop-blur-sm bg-white/10">
+                <div class="w-16 h-16 bg-white rounded-full shadow-[0_0_20px_rgba(255,255,255,0.7)] flex items-center justify-center shrink-0 border border-black/10"></div>
+            </button>
+
+            <!-- Flash Toggle (Disabled visual only) -->
+            <button class="flex flex-col items-center justify-center gap-2 text-white/50 active:scale-95 transition-transform">
+                <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center border border-white/10 backdrop-blur-md">
+                    <span class="material-symbols-outlined">flash_auto</span>
+                </div>
+                <span class="text-[10px] font-bold tracking-wider">FLASH</span>
+            </button>
+        </div>
+    </div>
+    <!-- UTILITIES -->
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden">
+    <input type="file" id="fileInput" accept="image/*" class="hidden">
+    
+    <div id="loadingOverlay" class="fixed inset-0 bg-white/80 backdrop-blur-md z-[20000] flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <h2 class="mt-6 text-xl font-bold">Checking with AI...</h2>
+        <p class="text-on-surface-variant">Thoda intezar karein (Searching Gemini)</p>
+    </div>
+
+    <div id="voiceModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[150] flex items-end justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+        <div id="voiceModalContent" class="bg-white/80 backdrop-blur-3xl border-t border-white/60 w-full max-w-lg rounded-t-[3rem] p-10 flex flex-col items-center translate-y-full transition-transform duration-300 shadow-[0_-20px_50px_rgba(0,0,0,0.1)]">
+            <div class="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mb-6 relative">
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-sm">Saaf Focus</h4>
+                        <p class="text-xs text-on-surface-variant font-medium">Ghaav ya report bilkul beech mein aur saaf honi chahiye.</p>
+                    </div>
+                </div>
+            </div>
+
+            <button id="closeHelpBtn" class="w-full bg-primary text-white font-bold text-lg py-4 rounded-2xl shadow-lg hover:shadow-xl active:scale-95 transition-all">
+                Theek Hai
+            </button>
+        </div>
+    </div>
+
+    <!-- DISCLAIMER MODAL -->
+    <div id="disclaimerOverlay" class="fixed inset-0 bg-black/70 z-[10000] flex items-center justify-center p-4 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300">
+        <div id="disclaimerModal" class="bg-white/70 backdrop-blur-3xl border border-white/60 max-w-sm w-full rounded-[2.5rem] p-8 space-y-6 shadow-2xl transform scale-95 transition-transform duration-300 text-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-32 bg-error-container/50 -z-10"></div>
+            <div class="w-20 h-20 bg-error/10 text-error rounded-full flex items-center justify-center mx-auto mb-2 shadow-inner border border-error/20">
+                <span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">health_and_safety</span>
+            </div>
+            <h2 class="text-3xl font-extrabold text-on-surface tracking-tight">Zaroori Soochna</h2>
+            <p class="text-on-surface-variant font-medium text-[15px] leading-relaxed">
+                Swasth AI ek Artificial Intelligence tool hai, <b>asli doctor nahi</b>.<br><br>
+                Is ka upyog sirf jankari ke liye karein. Gambhir samasya ya emergency hone par turant nazdiki doctor se sampark karein.
+            </p>
+            <div class="border-t border-white/40 pt-4 mt-2 mb-2">
+                <p class="text-xs text-on-surface-variant/80 font-medium">
+                    Aage badhne par aap hamari <a href="#" class="text-primary underline font-bold">Privacy Policy</a> aur Terms se sehmat hote hain. Hum aapka data mehfooz (safe) rakhte hain.
+                </p>
+            </div>
+            <button id="btnAcceptDisclaimer" class="w-full bg-primary text-white font-bold text-lg py-4 rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all">
+                Main Samajh Gaya
+            </button>
+        </div>
+    </div>
+
+    <!-- AUTH MODAL -->
+    <div id="authOverlay" class="fixed inset-0 bg-black/60 z-[9999] opacity-0 pointer-events-none transition-opacity duration-300 backdrop-blur-sm">
+        <div id="authModal" class="absolute bottom-0 w-full h-[70vh] bg-white/70 backdrop-blur-3xl border-t border-white/60 rounded-t-[3rem] shadow-[0_-20px_50px_rgba(0,0,0,0.1)] flex flex-col translate-y-full transition-transform duration-500 ease-out md:max-w-md md:left-1/2 md:-translate-x-1/2 overflow-hidden">
+            <!-- Glassmorphism Header Background -->
+            <div class="absolute top-0 left-0 w-full h-48 bg-white/20 blur-2xl -z-10"></div>
+            
+            <div class="p-6 flex flex-col items-center text-center space-y-6">
+                <!-- Close Button -->
+                <button id="closeAuthBtn" class="absolute top-6 right-6 w-10 h-10 bg-white/80 backdrop-blur-md rounded-full shadow-sm flex items-center justify-center text-on-surface-variant">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+
+                <!-- Icon/Illustration -->
+                <div class="w-24 h-24 bg-white rounded-[2rem] shadow-xl flex items-center justify-center mt-8 relative group overflow-hidden">
+                    <div class="absolute inset-0 bg-primary/5 group-hover:bg-primary/10 transition-colors"></div>
+                    <span id="authHeaderIcon" class="material-symbols-outlined text-5xl text-primary" style="font-variation-settings: 'FILL' 1;">health_and_safety</span>
+                </div>
+
+                <div id="authContentLoggedOut" class="w-full space-y-6">
+                    <div class="space-y-2">
+                        <h2 class="text-3xl font-extrabold tracking-tight text-on-surface">Swasth AI <br/><span class="text-primary text-2xl font-bold">ke saath judein</span></h2>
+                        <p class="text-on-surface-variant text-sm px-8">Aage badhne ke liye sign in karein aur apni health history check karein.</p>
+                    </div>
+
+                    <div class="w-full space-y-4 pt-4 px-4">
+                        <!-- Google Sign-In -->
+                        <button id="btnGoogleSignIn" class="w-full flex items-center justify-center gap-3 bg-white border border-surface-variant p-4 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-95 group">
+                            <img src="https://www.google.com/favicon.ico" class="w-6 h-6 grayscale group-hover:grayscale-0 transition-all" alt="google">
+                            <span class="font-bold text-on-surface">Sign in with Google</span>
+                        </button>
+                        
+                        <div class="flex items-center gap-4 py-2">
+                            <div class="h-px flex-1 bg-surface-variant"></div>
+                            <span class="text-[10px] uppercase font-bold text-on-surface-variant/40 tracking-widest">ya</span>
+                            <div class="h-px flex-1 bg-surface-variant"></div>
+                        </div>
+
+                        <!-- Email Sign-In -->
+                        <div class="space-y-3">
+                            <div class="relative">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">mail</span>
+                                <input type="email" id="emailInput" placeholder="Aapka Email" class="w-full bg-surface-container-low border-none rounded-2xl pl-12 pr-4 py-4 focus:ring-2 focus:ring-primary shadow-inner">
+                            </div>
+                            <button id="btnEmailSignIn" class="w-full bg-primary text-white p-4 rounded-2xl shadow-lg hover:shadow-xl transition-all active:scale-95 font-bold">
+                                Email se link bhejein
+                            </button>
+                        </div>
+
+                        <!-- Guest Mode -->
+                        <button id="btnGuestMode" class="w-full text-on-surface-variant text-sm font-medium hover:text-primary transition-colors py-2">
+                            Bina login ke jari rakhein
+                        </button>
+                    </div>
+                </div>
+
+                <div id="authContentLoggedIn" class="hidden w-full space-y-6">
+                    <div class="space-y-2">
+                        <h2 class="text-2xl font-extrabold text-on-surface">Aapka Profile</h2>
+                        <p id="userEmailDisplay" class="text-primary font-bold text-lg"></p>
+                    </div>
+
+                    <div class="w-full space-y-4 pt-4 px-4">
+                        <button id="btnLogout" class="w-full flex items-center justify-center gap-3 bg-surface-container-high text-error p-4 rounded-2xl font-bold shadow-sm active:scale-95">
+                            <span class="material-symbols-outlined">logout</span>
+                            Logout Karein
+                        </button>
+                    </div>
+                </div>
+
+                <p id="authNotice" class="text-[10px] text-on-surface-variant/60 px-10 leading-relaxed pt-4">
+                    Sign in karke aap hamari <a href="#" class="underline">Terms of Service</a> aur <a href="#" class="underline">Privacy Policy</a> se sehmat hote hain.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCANNER UI -->
+    <div id="scannerOverlay" class="fixed inset-0 bg-black z-[300] flex flex-col opacity-0 pointer-events-none transition-opacity duration-300">
+        <!-- Live Video Feed -->
+        <video id="scannerVideo" autoplay playsinline class="absolute inset-0 w-full h-full object-cover"></video>
+        
+        <!-- UI Overlay (Dark border, clear center) -->
+        <div class="absolute inset-0 z-10 pointer-events-none border-y-[15vh] border-x-[10vw] border-black/60">
+            <div class="relative w-full h-full rounded-2xl box-border">
+                <!-- Laser Line -->
+                <div class="absolute left-0 right-0 w-full h-[2px] bg-[#4ade80] shadow-[0_0_15px_#4ade80] z-20 top-0" style="animation: scanLine 3s infinite linear;"></div>
+                
+                <!-- Bouncing Funny Bot -->
+                <div class="absolute inset-0 flex flex-col items-center justify-center" style="animation: bounceFloat 2s ease-in-out infinite;">
+                    <div class="w-16 h-16 bg-white/20 backdrop-blur-md border border-white/50 shadow-xl rounded-full flex items-center justify-center mb-2 shrink-0">
+                        <span class="material-symbols-outlined text-4xl text-white" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+                    </div>
+                </div>
+
+                <!-- Corner markers -->
+                <div class="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-[#4ade80] rounded-tl-2xl"></div>
+                <div class="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-[#4ade80] rounded-tr-2xl"></div>
+                <div class="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-[#4ade80] rounded-bl-2xl"></div>
+                <div class="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-[#4ade80] rounded-br-2xl"></div>
+                
+                <!-- Scanning Instructions Note -->
+                <div class="absolute -bottom-16 left-0 right-0 text-center">
+                    <p class="text-white/90 text-sm font-bold drop-shadow-md bg-black/40 backdrop-blur-md py-2 px-4 rounded-full border border-white/20 inline-block mx-auto">
+                        Note: Agar saaf nahi dikh raha, toh phone door ya paas karein
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden canvas to render photo -->
+        <canvas id="scannerCanvas" class="hidden"></canvas>
+
+        <!-- Top Header Controls -->
+        <div class="absolute top-0 left-0 w-full pt-12 pb-6 px-6 z-20 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
+            <button id="closeScannerBtn" class="w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white active:scale-95 border border-white/30">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+            <h2 class="text-white font-bold tracking-widest text-sm shadow-sm">SCAN PROBLEM</h2>
+            <div class="w-10"></div> <!-- Spacer -->
+        </div>
+
+        <!-- Bottom Controls -->
+        <div class="absolute bottom-0 left-0 w-full p-8 pb-12 z-20 flex justify-center items-center gap-12 bg-gradient-to-t from-black/90 to-transparent">
+            <!-- Upload from gallery button -->
+            <button id="scannerUploadBtn" class="flex flex-col items-center justify-center gap-2 text-white/90 active:scale-95 transition-transform drop-shadow-md">
+                <div class="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center border border-white/30 backdrop-blur-md">
+                    <span class="material-symbols-outlined">collections</span>
+                </div>
+                <span class="text-[10px] font-bold tracking-wider">GALLERY</span>
+            </button>
+
+            <!-- Shutter Button -->
+            <button id="scannerShutterBtn" class="w-20 h-20 rounded-full border-[5px] border-white/80 flex items-center justify-center active:scale-95 transition-transform backdrop-blur-sm bg-white/10">
+                <div class="w-16 h-16 bg-white rounded-full shadow-[0_0_20px_rgba(255,255,255,0.7)] flex items-center justify-center shrink-0 border border-black/10"></div>
+            </button>
+
+            <!-- Flash Toggle (Disabled visual only) -->
+            <button class="flex flex-col items-center justify-center gap-2 text-white/50 active:scale-95 transition-transform">
+                <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center border border-white/10 backdrop-blur-md">
+                    <span class="material-symbols-outlined">flash_auto</span>
+                </div>
+                <span class="text-[10px] font-bold tracking-wider">FLASH</span>
+            </button>
+        </div>
+    </div>
+    <!-- UTILITIES -->
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden">
+    <input type="file" id="fileInput" accept="image/*" class="hidden">
+    
+    <div id="loadingOverlay" class="fixed inset-0 bg-white/80 backdrop-blur-md z-[20000] flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <h2 class="mt-6 text-xl font-bold">Checking with AI...</h2>
+        <p class="text-on-surface-variant">Thoda intezar karein (Searching Gemini)</p>
+    </div>
+
+    <div id="voiceModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[150] flex items-end justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+        <div id="voiceModalContent" class="bg-white/80 backdrop-blur-3xl border-t border-white/60 w-full max-w-lg rounded-t-[3rem] p-10 flex flex-col items-center translate-y-full transition-transform duration-300 shadow-[0_-20px_50px_rgba(0,0,0,0.1)]">
+            <div class="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mb-6 relative">
+                <div id="micPulse" class="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-0"></div>
+                <span class="material-symbols-outlined text-primary text-5xl">mic</span>
+            </div>
+            <h3 id="voiceStatus" class="text-2xl font-bold mb-2">Sun raha hoon...</h3>
+            <p id="voiceText" class="text-center text-on-surface-variant min-h-[50px] italic">"Aapko kya takleef hai?"</p>
+            <button id="closeVoice" class="mt-8 px-10 py-3 bg-gray-100 rounded-full font-bold">Bane rahein</button>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAVIGATION -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-2xl border-t border-white/50 px-8 py-4 flex justify-between items-center z-[100] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] md:max-w-md md:left-1/2 md:-translate-x-1/2 md:rounded-t-[2rem]">
+        <button id="navHomeBtn" onclick="showView('viewHome')" class="flex flex-col items-center gap-1 group transition-all">
+            <div class="p-2 rounded-xl group-active:bg-blue-50">
+                <span class="material-symbols-outlined text-primary text-2xl" id="navHomeIcon">home</span>
+            </div>
+            <span class="text-[10px] font-extrabold uppercase tracking-widest text-primary/60">HOME</span>
+        </button>
+        <button id="navRecordsBtn" onclick="showView('viewRecords')" class="flex flex-col items-center gap-1 group transition-all">
+            <div class="p-2 rounded-xl group-active:bg-blue-50">
+                <span class="material-symbols-outlined text-on-surface-variant text-2xl" id="navRecordsIcon">history</span>
+            </div>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50">RECORDS</span>
+        </button>
+        <button id="navProfileBtn" class="flex flex-col items-center gap-1 group transition-all">
+            <div class="p-2 rounded-xl group-active:bg-blue-50">
+                <span class="material-symbols-outlined text-on-surface-variant text-2xl" id="navProfileIcon">person</span>
+            </div>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/50">PROFILE</span>
+        </button>
+    </nav>
+
+    <script type="module">
+        // CONFIG
+        const SUPABASE_URL = "https://sglswoouzatiktspopwe.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnbHN3b291emF0aWt0c3BvcHdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODUxMzAsImV4cCI6MjA5MjE2MTEzMH0.vwWhzNKaCLCxtDTEbxXH72MUetAphJYxbHAH4hSzkoE";
+        
+        let sb = null;
+        if (typeof supabase !== 'undefined') {
+            sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        const systemInstruction = `
+            You are an AI Health Assistant designed for rural users with low medical knowledge.
+            RULES:
+            - Explain things in VERY SIMPLE language (Hinglish preferred: simple Hindi + basic English).
+            - Short sentences. Avoid medical jargon. Do NOT use prescription drugs names.
+            - ALWAYS say "yeh ho sakta hai" (possible cause), never "you have".
+            - If serious signs, strongly recommend doctor. If image unclear, say "image clear nahi hai".
+            MANDATORY OUTPUT FORMAT:
+            Return pure JSON matching the exact keys below.
+            {
+              "problem": "Simple explanation of what is seen in Hinglish",
+              "diagnosis": "Possible cause in Hinglish",
+              "severity": "LOW | MEDIUM | HIGH",
+              "severityReason": "1 line reason for severity",
+              "actions": ["Safe step 1", "Safe step 2"],
+              "ayurvedaRemedies": ["Safe Ayurveda step 1", "Safe Ayurveda step 2"],
+              "warnings": ["Warning sign 1", "Warning sign 2"],
+              "report": [{"title": "Sugar High", "desc": "Simple reason"}],
+              "note": "Yeh final diagnosis nahi hai. Doctor se confirm karna zaroori hai."
+            }
+        `;
+
+        // STATE
+        let currentUser = null;
+        let currentAiData = null;
+        let currentStream = null;
+        let recognition = null;
+        let speech = null;
+
+        // UI ELEMENTS
+        const get = id => document.getElementById(id);
+        const els = {
+            home: get('viewHome'), analysis: get('viewAnalysis'), records: get('viewRecords'),
+            navHome: get('navHomeIcon'), navRecords: get('navRecordsIcon'),
+            loading: get('loadingOverlay'),
+            authOverlay: get('authOverlay'), authModal: get('authModal'),
+            authOut: get('authContentLoggedOut'), authIn: get('authContentLoggedIn'),
+            userEmail: get('userEmailDisplay'), authIcon: get('authHeaderIcon'), authNotice: get('authNotice'),
+            scanner: get('scannerOverlay'), video: get('scannerVideo'), canvas: get('scannerCanvas'),
+            voice: get('voiceModal'), voiceContent: get('voiceModalContent'), micPulse: get('micPulse'),
+            voiceStatus: get('voiceStatus'), voiceText: get('voiceText'),
+            chat: get('chatOverlay'), chatModal: get('chatModal'), chatFeed: get('chatFeed'), chatInput: get('chatInput'),
+            help: get('helpOverlay'), helpModal: get('helpModal'),
+            disclaimer: get('disclaimerOverlay'), disclaimerModal: get('disclaimerModal'),
+            resImage: get('resImage'), resProblem: get('resProblem'), resDiagnosis: get('resDiagnosis'),
+            resNote: get('resNote'), resSevCard: get('resSeverityCard'), resSevIcon: get('resSeverityIcon'),
+            resSevLabel: get('resSeverityLabel'), resSevReason: get('resSeverityReason'),
+            resActions: get('resActionsList'), resWarnings: get('resWarningsList'),
+            resAyur: get('resAyurvedaWrapper'), resAyurList: get('resAyurvedaList'),
+            resReport: get('resReportWrapper'), resReportList: get('resReportList'),
+            recList: get('recordsList'), recEmpty: get('recordsEmptyState'), recCount: get('recordCount'),
+            openChatBtn: get('openChatBtn'), speakIcon: get('speakIcon'), speakText: get('speakText')
+        };
+
+        // VIEW LOGIC
+        function showView(viewId) {
+            ['viewHome', 'viewAnalysis', 'viewRecords'].forEach(v => get(v)?.classList.add('hidden'));
+            const target = get(viewId);
+            if (target) target.classList.remove('hidden');
+            
+            els.navHome?.classList.toggle('text-primary', viewId === 'viewHome');
+            els.navHome?.classList.toggle('text-on-surface-variant', viewId !== 'viewHome');
+            els.navRecords?.classList.toggle('text-primary', viewId === 'viewRecords');
+            els.navRecords?.classList.toggle('text-on-surface-variant', viewId !== 'viewRecords');
+            
+            window.scrollTo(0,0);
+        }
+
+        // AUTH LOGIC
+        function openAuth() {
+            els.authOverlay?.classList.remove('opacity-0', 'pointer-events-none');
+            els.authModal?.classList.remove('translate-y-full');
+            document.body.classList.add('no-scroll');
+        }
+        function closeAuth() {
+            els.authOverlay?.classList.add('opacity-0', 'pointer-events-none');
+            els.authModal?.classList.add('translate-y-full');
+            document.body.classList.remove('no-scroll');
+        }
+        async function handleGoogleLogin() {
+            if (!sb) return alert("Account services unreachable.");
+            await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
+        }
+        async function handleEmailLogin() {
+            const email = get('emailInput').value.trim();
+            if (!email) return alert("Email likhein");
+            const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.href } });
+            if (error) alert(error.message); else alert("Login link bhej diya gaya hai!");
+        }
+        async function handleLogout() {
+            await sb.auth.signOut();
+            location.reload();
+        }
+
+        async function callAnalysis(file, symptoms) {
+            els.loading.classList.remove('opacity-0', 'pointer-events-none');
+            try {
+                const formData = new FormData();
+                if (file) formData.append('image', file);
+                if (symptoms) formData.append('symptoms', symptoms);
+
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("Analysis failed");
+                const data = await response.json();
+                
+                const imgData = file ? await new Promise(r => {
+                    const reader = new FileReader();
+                    reader.onload = e => r(e.target.result);
+                    reader.readAsDataURL(file);
+                }) : "https://images.unsplash.com/photo-1579684453423-f84349ef60b0?w=200&q=80";
+
+                renderAnalysis(data, imgData);
+                saveScanRecord(data, symptoms);
+            } catch (err) {
+                console.error(err);
+                alert("AI error: " + err.message);
+            } finally {
+                els.loading.classList.add('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        function renderAnalysis(data, img) {
+            currentAiData = data;
+            els.resImage.src = img;
+            els.resProblem.innerText = data.problem;
+            els.resDiagnosis.innerText = data.diagnosis;
+            els.resNote.innerText = "ℹ️ Note: " + (data.note || "Doctor se milna zaroori hai.");
+            
+            const sev = (data.severity || 'MEDIUM').toUpperCase();
+            els.resSevCard.className = `p-5 rounded-xl border shadow-lg ${sev === 'HIGH' ? 'bg-error-container text-on-error-container border-error' : sev === 'LOW' ? 'bg-green-50 text-green-800 border-green-200' : 'bg-yellow-50 text-yellow-800 border-yellow-200'}`;
+            els.resSevIcon.innerText = sev === 'HIGH' ? 'warning' : sev === 'LOW' ? 'check_circle' : 'info';
+            els.resSevLabel.innerText = `3. 📊 Severity: ${sev}`;
+            els.resSevReason.innerText = data.severityReason;
+
+            const populate = (id, items, bullet) => {
+                const el = get(id); if (!el) return; el.innerHTML = '';
+                (items || []).forEach(it => { const li = document.createElement('li'); li.innerText = `${bullet} ${it}`; el.appendChild(li); });
+            };
+            populate('resActionsList', data.actions, '✅');
+            populate('resWarningsList', data.warnings, '⚠️');
+
+            if (data.ayurvedaRemedies?.length) {
+                els.resAyur.classList.remove('hidden');
+                populate('resAyurvedaList', data.ayurvedaRemedies, '🍃');
+            } else els.resAyur.classList.add('hidden');
+
+            if (data.report?.length) {
+                els.resReport.classList.remove('hidden');
+                els.resReportList.innerHTML = '';
+                data.report.forEach(it => {
+                    const d = document.createElement('div');
+                    d.className = "bg-white p-4 rounded-xl shadow-sm border border-blue-50";
+                    d.innerHTML = `<h4 class="font-bold">${it.title}</h4><p class="text-sm opacity-80">${it.desc}</p>`;
+                    els.resReportList.appendChild(d);
+                });
+            } else els.resReport.classList.add('hidden');
+
+            showView('viewAnalysis');
+            els.openChatBtn?.classList.remove('hidden');
+        }
+
+        // FEATURES
+        async function handleVoiceAnalysis() {
+            if (!currentAiData) return;
+            const synth = window.speechSynthesis;
+            if (synth.speaking) { synth.cancel(); updateSpeakUI(false); return; }
+            const text = `${currentAiData.problem}. Iska karan ${currentAiData.diagnosis} ho sakta hai. ${currentAiData.actions.join('. ')}. ${currentAiData.note}.`;
+            speech = new SpeechSynthesisUtterance(text);
+            speech.lang = 'hi-IN';
+            speech.onstart = () => updateSpeakUI(true);
+            speech.onend = () => updateSpeakUI(false);
+            synth.speak(speech);
+        }
+        function updateSpeakUI(isPlaying) {
+            els.speakIcon.innerText = isPlaying ? "stop_circle" : "volume_up";
+            els.speakText.innerText = isPlaying ? "Rokein" : "Sunein";
+        }
+
+        // SCANNER & VOICE RECOG
+        async function openScanner() {
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                els.video.srcObject = currentStream;
+                els.scanner.classList.remove('opacity-0', 'pointer-events-none');
+                document.body.classList.add('no-scroll');
+            } catch (err) { alert("Camera access denied."); get('fileInput').click(); }
+        }
+        function stopScanner() {
+            if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+            els.scanner.classList.add('opacity-0', 'pointer-events-none');
+            document.body.classList.remove('no-scroll');
+        }
+        function openVoice() {
+            els.voice.classList.remove('opacity-0', 'pointer-events-none');
+            els.voiceContent.classList.remove('translate-y-full');
+            startVoiceRecognition();
+        }
+        function closeVoice() {
+            els.voice.classList.add('opacity-0', 'pointer-events-none');
+            els.voiceContent.classList.add('translate-y-full');
+            if (recognition) recognition.stop();
+        }
+        function startVoiceRecognition() {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) return alert("Voice not supported.");
+            recognition = new SR();
+            recognition.lang = 'hi-IN';
+            recognition.onstart = () => { els.micPulse.classList.remove('opacity-0'); els.voiceStatus.innerText = "Sunte hain..."; };
+            recognition.onresult = (e) => { els.voiceText.innerText = e.results[0][0].transcript; };
+            recognition.onend = () => {
+                els.micPulse.classList.add('opacity-0');
+                if (els.voiceText.innerText !== "Aapko kya takleef hai?") {
+                    setTimeout(() => { closeVoice(); callAnalysis(null, els.voiceText.innerText); }, 1000);
+                }
+            };
+            recognition.start();
+        }
+
+        // RECORDS
+        async function saveScanRecord(diag, symptoms) {
+            if (!sb || !currentUser?.id) return;
+            await sb.from('scans_history').insert({ user_id: currentUser.id, symptoms: symptoms || "Visual Scan", diagnosis: diag });
+        }
+        async function fetchScanRecords() {
+            if (!sb || !currentUser?.id) return renderRecords([]);
+            const { data } = await sb.from('scans_history').select('*').order('created_at', { ascending: false });
+            renderRecords(data || []);
+        }
+        function renderRecords(recs) {
+            els.recList.innerHTML = '';
+            els.recCount.innerText = `${recs.length} Records`;
+            if (!recs.length) { els.recEmpty.classList.remove('hidden'); return; }
+            els.recEmpty.classList.add('hidden');
+            recs.forEach(r => {
+                const d = r.diagnosis || {};
+                const card = document.createElement('div');
+                card.className = "bg-white/40 backdrop-blur-xl p-5 rounded-[1.5rem] shadow-sm border border-white/60 mb-4 cursor-pointer";
+                card.onclick = () => renderAnalysis(d, r.image_url);
+                card.innerHTML = `<h3 class="font-bold text-lg">${d.problem || "Checkup"}</h3><p class="text-sm opacity-70">${new Date(r.created_at).toLocaleDateString()}</p>`;
+                els.recList.appendChild(card);
+            });
+        }
+
+        // INIT & LISTENERS
+        document.addEventListener('DOMContentLoaded', () => {
+            const healthTips = ["Roz subah thoda garm paani piyein.", "Raat ko jaldi soyein.", "Har roz 5 fal khayein.", "Haath dho kar khayein."];
+            get('dailyHealthTip').innerText = healthTips[Math.floor(Math.random() * healthTips.length)];
+
+            if (sb) {
+                sb.auth.onAuthStateChange((ev, sess) => {
+                    currentUser = sess?.user;
+                    els.authOut.classList.toggle('hidden', !!currentUser);
+                    els.authIn.classList.toggle('hidden', !currentUser);
+                    els.authNotice.classList.toggle('hidden', !!currentUser);
+                    if (currentUser) els.userEmail.innerText = currentUser.email || "Profile";
+                    if (ev === 'SIGNED_IN') closeAuth();
+                });
+            }
+
+            get('btnCamera').onclick = () => currentUser ? openScanner() : openAuth();
+            get('btnSymptoms').onclick = () => currentUser ? openVoice() : openAuth();
+            get('btnUpload').onclick = () => currentUser ? get('fileInput').click() : openAuth();
+            get('fileInput').onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    callAnalysis(file, null);
+                    e.target.value = ''; // Reset to allow re-uploading same file
+                }
+            };
+            get('navProfileBtn').onclick = openAuth;
+            get('closeAuthBtn').onclick = closeAuth;
+            get('btnGoogleSignIn').onclick = handleGoogleLogin;
+            get('btnEmailSignIn').onclick = handleEmailLogin;
+            get('btnGuestMode').onclick = () => { currentUser = { id: 'guest' }; closeAuth(); };
+            get('btnLogout').onclick = handleLogout;
+            get('navRecordsBtn').onclick = () => { showView('viewRecords'); fetchScanRecords(); };
+            get('btnBackToHome').onclick = () => showView('viewHome');
+            get('closeHelpBtn').onclick = () => { get('helpOverlay').classList.add('opacity-0', 'pointer-events-none'); };
+            get('openHelpBtn').onclick = () => { get('helpOverlay').classList.remove('opacity-0', 'pointer-events-none'); };
+            get('btnAcceptDisclaimer').onclick = () => { get('disclaimerOverlay').classList.add('opacity-0', 'pointer-events-none'); };
+            
+            // Scanner shutter
+            get('scannerShutterBtn').onclick = () => {
+                const ctx = els.canvas.getContext('2d');
+                els.canvas.width = els.video.videoWidth;
+                els.canvas.height = els.video.videoHeight;
+                ctx.drawImage(els.video, 0, 0);
+                els.canvas.toBlob(blob => {
+                    stopScanner();
+                    callAnalysis(new File([blob], "scan.jpg", { type: "image/jpeg" }), null);
+                }, 'image/jpeg', 0.8);
+            };
+            get('closeScannerBtn').onclick = stopScanner;
+            get('scannerUploadBtn').onclick = () => { stopScanner(); get('fileInput').click(); };
+            get('closeVoice').onclick = closeVoice;
+            get('btnSpeak').onclick = handleVoiceAnalysis;
+
+            get('chatForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const text = els.chatInput.value.trim();
+                if (!text) return;
+                els.chatFeed.innerHTML += `<div class="flex justify-end mb-2"><div class="bg-primary text-white p-3 rounded-2xl rounded-tr-none text-sm">${text}</div></div>`;
+                els.chatInput.value = '';
+                try {
+                    const response = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: text, context: currentAiData })
+                    });
+                    if (!response.ok) throw new Error("Chat failed");
+                    const data = await response.json();
+                    els.chatFeed.innerHTML += `<div class="flex justify-start mb-2"><div class="bg-gray-100 p-3 rounded-2xl rounded-tl-none text-sm">${data.reply}</div></div>`;
+                } catch (e) { 
+                    console.error(e);
+                    els.chatFeed.innerHTML += `<div class="text-xs text-red-500 text-center">AI Busy</div>`; 
+                }
+                els.chatFeed.scrollTop = els.chatFeed.scrollHeight;
+            };
+            get('closeChatBtn').onclick = () => els.chat.classList.add('opacity-0', 'pointer-events-none');
+            els.openChatBtn.onclick = () => els.chat.classList.remove('opacity-0', 'pointer-events-none');
+
+            // Default disclaimer
+            setTimeout(() => { get('disclaimerOverlay').classList.remove('opacity-0', 'pointer-events-none'); }, 1000);
+        });
+
+        window.showView = showView;
+    </script>
+</body>
+</html>
