@@ -2,6 +2,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const express = require("express");
 const multer = require("multer");
 const cors = require("cors");
+const path = require("path");
 require("dotenv").config();
 
 const app = express();
@@ -145,6 +146,14 @@ Return ONLY the translated JSON.
         res.status(500).json({ error: "Translation failed", details: error.message });
     }
 });
+
+// Explicitly serve index.html for the root route
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "index.html"));
+});
+
+// Serve static files (CSS, JS, etc.)
+app.use(express.static(__dirname));
 
 const PORT = process.env.PORT || 3000;
 if (require.main === module) {
