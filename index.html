@@ -902,8 +902,10 @@
                     body: formData
                 });
 
-                if (!response.ok) throw new Error("Analysis failed");
-                const data = await response.json();
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(data.details || "Analysis failed");
+                }
                 
                 const imgData = file ? await new Promise(r => {
                     const reader = new FileReader();
@@ -915,7 +917,8 @@
                 saveScanRecord(data, symptoms);
             } catch (err) {
                 console.error(err);
-                alert("AI error: " + err.message);
+                const errorMsg = err.message.includes("quota") ? "AI Limit reached. Please try again in a minute." : "AI Error: " + err.message;
+                alert(errorMsg);
             } finally {
                 els.loading.classList.add('opacity-0', 'pointer-events-none');
             }
@@ -1059,9 +1062,9 @@
                 });
             }
 
-            get('btnCamera').onclick = () => currentUser ? openScanner() : openAuth();
-            get('btnSymptoms').onclick = () => currentUser ? openVoice() : openAuth();
-            get('btnUpload').onclick = () => currentUser ? get('fileInput').click() : openAuth();
+            get('btnCamera').onclick = () => openScanner();
+            get('btnSymptoms').onclick = () => openVoice();
+            get('btnUpload').onclick = () => get('fileInput').click();
             get('fileInput').onchange = (e) => {
                 const file = e.target.files[0];
                 if (file) {

@@ -18,6 +18,29 @@ const upload = multer({ storage: multer.memoryStorage() });
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+async function getAIResponse(prompt, imagePart = null) {
+    const models = ["gemini-2.5-flash", "gemini-flash-latest"];
+    let lastError = null;
+
+    for (const modelName of models) {
+        try {
+            console.log(`Attempting AI generation with model: ${modelName}`);
+            const model = genAI.getGenerativeModel({ model: modelName });
+            const result = await (imagePart ? model.generateContent([prompt, imagePart]) : model.generateContent(prompt));
+            const text = result.response.text();
+            console.log(`Successfully generated content with ${modelName}`);
+            return text;
+        } catch (error) {
+            console.error(`Model ${modelName} failed:`, error.message);
+            lastError = error;
+            if (error.status === 429) {
+                console.warn("Quota exceeded for this model, trying next...");
+            }
+        }
+    }
+    throw lastError || new Error("All AI models failed");
+}
+
 const systemInstruction = `
 You are an AI Health Assistant designed for rural users with low medical knowledge.
 
@@ -42,39 +65,33 @@ Return pure JSON matching the exact keys below. DO NOT wrap the output in markdo
 }
 `;
 
+app.get("/api/test", (req, res) => res.json({ status: "Backend is working!", keyDetected: !!process.env.GEMINI_API_KEY }));
+
 app.post("/api/analyze", upload.single("image"), async (req, res) => {
     try {
-        const symptoms = req.body.symptoms || "No symptoms provided.";
-        console.log("Analyzing request... Symptoms:", symptoms);
-        
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.0-flash",
-            systemInstruction: systemInstruction 
-        });
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            return res.status(500).json({ error: "Config Error", details: "GEMINI_API_KEY missing in Vercel settings." });
+        }
 
-        const prompt = `Please analyze the provided input. User Symptoms: ${symptoms}. Give your assessment strictly in the requested JSON format.`;
+        const symptoms = req.body.symptoms || "No symptoms provided.";
+        const mainPrompt = `${systemInstruction}\n\nUSER INPUT: Symptoms: ${symptoms}. Analyze any attached image and symptoms. Return ONLY JSON.`;
         
-        let result;
+        let imagePart = null;
         if (req.file) {
-            console.log("Processing image file...");
-            const imagePart = {
+            imagePart = {
                 inlineData: {
                     data: req.file.buffer.toString("base64"),
                     mimeType: req.file.mimetype
                 }
             };
-            result = await model.generateContent([prompt, imagePart]);
-        } else {
-            console.log("Processing text only...");
-            result = await model.generateContent(prompt);
         }
 
-        const responseText = result.response.text();
-        // Fallback robust parsing in case Gemini includes markdown tags
+        const responseText = await getAIResponse(mainPrompt, imagePart);
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        const finalJsonString = jsonMatch ? jsonMatch[0] : responseText;
+        if (!jsonMatch) throw new Error("AI response was not JSON: " + responseText.substring(0, 50));
         
-        res.json(JSON.parse(finalJsonString));
+        res.json(JSON.parse(jsonMatch[0]));
         
     } catch (error) {
         console.error("Analysis Error:", error);
@@ -85,28 +102,10 @@ app.post("/api/analyze", upload.single("image"), async (req, res) => {
 app.post("/api/chat", async (req, res) => {
     try {
         const { message, context } = req.body;
-        console.log("Chat request received:", message);
-
-        const chatInstruction = `You are Swasth AI, a helpful health assistant meant for rural users. 
-You are answering a follow-up question from the patient after giving them an initial analysis.
-RULES:
-1. Speak in VERY simple Hinglish (Hindi + simple English).
-2. Keep responses very short (2-3 sentences max).
-3. Be reassuring but DO NOT prescribe medicines or drugs. 
-
-Here is what you previously told the patient (Context):
-${JSON.stringify(context)}
-`;
-
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.0-flash",
-            systemInstruction: chatInstruction 
-        });
-
-        const result = await model.generateContent(message);
-        res.json({ reply: result.response.text() });
+        const prompt = `CONTEXT: ${JSON.stringify(context)}\nINSTRUCTION: Respond in simple Hinglish, max 2 sentences. No meds.\nUSER: ${message}`;
+        const responseText = await getAIResponse(prompt);
+        res.json({ reply: responseText });
     } catch (error) {
-        console.error("Chat Error:", error);
         res.status(500).json({ error: "Chat failed", details: error.message });
     }
 });
@@ -133,10 +132,8 @@ ${JSON.stringify(analysis)}
 Return ONLY the translated JSON.
 `;
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-        const result = await model.generateContent(translationPrompt);
+        const responseText = await getAIResponse(translationPrompt);
         
-        const responseText = result.response.text();
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         const finalJsonString = jsonMatch ? jsonMatch[0] : responseText;
         
@@ -149,11 +146,11 @@ Return ONLY the translated JSON.
 
 // Explicitly serve index.html for the root route
 app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "index.html"));
+    res.sendFile(path.join(process.cwd(), "index.html"));
 });
 
 // Serve static files (CSS, JS, etc.)
-app.use(express.static(__dirname));
+app.use(express.static(process.cwd()));
 
 const PORT = process.env.PORT || 3000;
 if (require.main === module) {
